@@ -1,14 +1,15 @@
-library(tidyverse)
-library(httr)
+loadNamespace("tidyverse")
+loadNamespace("httr")
 
+# hold-over from using a manual approach
 # import all downloaded data
-historicalDataRaw <- sapply(list.files("historical/", full.names = T), read_csv, simplify = F) %>% 
-  bind_rows() %>%
-  rename(
-    "price_per_100" = "Price per $100"
-  )
-
-colnames(historicalDataRaw) <- str_replace_all(tolower(names(historicalDataRaw)), " ", "_")
+# historicalDataRaw <- sapply(list.files("historical/", full.names = T), readr::read_csv, simplify = FALSE) |>  
+#   dplyr::bind_rows() |> 
+#   dplyr::rename(
+#     "price_per_100" = "Price per $100"
+#   )
+# 
+# colnames(historicalDataRaw) <- str_replace_all(tolower(names(historicalDataRaw)), " ", "_")
 
 
 # scrape from the website -------------------------------------------------
@@ -44,7 +45,7 @@ tbills_final <- tbills_int |>
   dplyr::mutate(
     dplyr::across(
       dplyr::matches("Date"),
-    ~ as.POSIXct(., format = "%Y-%m-%d", tz = "EST"))
+    ~ as.POSIXct(., format = "%Y-%m-%d", tz = "America/New_York"))
   ) |> 
   dplyr::mutate(
     dplyr::across(
@@ -56,8 +57,6 @@ tbills_final <- tbills_int |>
     securityTerm = as.factor(securityTerm)
     )
 
-reddit_example <- tbills_final |> 
-  filter(cusip == "912796ZD4")
 # plots -------------------------------------------------------------------
 
 tbills_final |> 
@@ -65,13 +64,14 @@ tbills_final |>
   
   ggplot2::ggplot(ggplot2::aes(auctionDate, highInvestmentRate)) + 
   ggplot2::geom_line(
-    aes(group = securityTerm, col = securityTerm),
-    size = 1.8,
+    ggplot2::aes(group = securityTerm, col = securityTerm),
+    linewidth = 1.8,
     alpha = 0.6
     ) + 
   ggplot2::scale_color_discrete("Weeks", guide = ggplot2::guide_legend(override.aes = list(linewidth = 4, alpha = 1))) +
   ggplot2::scale_x_datetime(date_breaks = "3 months", labels = function (x) format(x, "%Y-%m")) +
-  theme(
+  ggplot2::scale_y_continuous(breaks = seq(0, 7, by = 0.5)) +
+  ggplot2::theme(
     panel.background = ggplot2::element_blank(),
     panel.grid.major = ggplot2::element_line(color = "#cccccc"),
     panel.grid.minor.y = ggplot2::element_line(color = "#cccccc"),
@@ -81,7 +81,7 @@ tbills_final |>
     legend.title = ggplot2::element_text(size = 18),
     legend.text = ggplot2::element_text(size = 15),
     legend.key.width = ggplot2::unit(2, "cm"),
-    axis.title = ggplot2::element_text(size = 20),
+    axis.title = ggplot2::element_text(size = 20, hjust = 1),
     axis.text.y = ggplot2::element_text(size = 18),
     axis.text.x = ggplot2::element_text(size = 18, angle = 45, hjust = 1),
     plot.title = ggplot2::element_text(size = 22, face = "bold"),
