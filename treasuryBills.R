@@ -1,0 +1,96 @@
+library(tidyverse)
+library(httr)
+
+# import all downloaded data
+historicalDataRaw <- sapply(list.files("historical/", full.names = T), read_csv, simplify = F) %>% 
+  bind_rows() %>%
+  rename(
+    "price_per_100" = "Price per $100"
+  )
+
+colnames(historicalDataRaw) <- str_replace_all(tolower(names(historicalDataRaw)), " ", "_")
+
+
+# scrape from the website -------------------------------------------------
+
+tbills_neat <- httr::content(httr::GET("https://www.treasurydirect.gov/TA_WS/securities/jqsearch?format=json"))
+
+tbills_int <- t(matrix(unlist(tbills_neat$securityList), ncol = length(tbills_neat$securityList))) |> 
+  as.data.frame()
+
+names(tbills_int) <- names(tbills_neat$securityList[[1]])
+
+tbills_final <- tbills_int |> 
+  dplyr::filter(securityType == "Bill" & type == "Bill") |> 
+  dplyr::mutate(
+    dplyr::across(
+      dplyr::everything(),
+      ~ ifelse(. == "", NA, .)
+    )
+  ) |> 
+  dplyr::select_if(function (x) {!all(is.na(x))}) |> 
+  dplyr::mutate(
+    termType = sapply(strsplit(securityTerm, "-"), `[`, 2),
+    securityTerm = as.numeric(sapply(strsplit(securityTerm, "-"), `[`, 1))
+  ) |> 
+  dplyr::mutate(
+    securityWeeks = dplyr::case_when(
+      termType == "Day" ~ securityTerm/7,
+      termType == "Month" ~ securityTerm*4,
+      termType == "Year" ~ securityTerm*52,
+      termType == "Week" ~ securityTerm
+    )
+  ) |> 
+  dplyr::mutate(
+    dplyr::across(
+      dplyr::matches("Date"),
+    ~ as.POSIXct(., format = "%Y-%m-%d", tz = "EST"))
+  ) |> 
+  dplyr::mutate(
+    dplyr::across(
+      dplyr::matches(c("Rate", "Percentage", "Price")),
+      ~ as.numeric(.)
+    )
+  ) |> 
+  dplyr::mutate(
+    securityTerm = as.factor(securityTerm)
+    )
+
+reddit_example <- tbills_final |> 
+  filter(cusip == "912796ZD4")
+# plots -------------------------------------------------------------------
+
+tbills_final |> 
+    dplyr::filter(auctionDate > "2021-08-01") |> 
+  
+  ggplot2::ggplot(ggplot2::aes(auctionDate, highInvestmentRate)) + 
+  ggplot2::geom_line(
+    aes(group = securityTerm, col = securityTerm),
+    size = 1.8,
+    alpha = 0.6
+    ) + 
+  ggplot2::scale_color_discrete("Weeks", guide = ggplot2::guide_legend(override.aes = list(linewidth = 4, alpha = 1))) +
+  ggplot2::scale_x_datetime(date_breaks = "3 months", labels = function (x) format(x, "%Y-%m")) +
+  theme(
+    panel.background = ggplot2::element_blank(),
+    panel.grid.major = ggplot2::element_line(color = "#cccccc"),
+    panel.grid.minor.y = ggplot2::element_line(color = "#cccccc"),
+    axis.ticks = ggplot2::element_blank(),
+    legend.position = "bottom",
+    legend.key = ggplot2::element_blank(),
+    legend.title = ggplot2::element_text(size = 18),
+    legend.text = ggplot2::element_text(size = 15),
+    legend.key.width = ggplot2::unit(2, "cm"),
+    axis.title = ggplot2::element_text(size = 20),
+    axis.text.y = ggplot2::element_text(size = 18),
+    axis.text.x = ggplot2::element_text(size = 18, angle = 45, hjust = 1),
+    plot.title = ggplot2::element_text(size = 22, face = "bold"),
+    plot.subtitle = ggplot2::element_text(size = 20, face = "italic"),
+    text = ggplot2::element_text(family = "Arial Narrow")
+  ) + 
+  ggplot2::labs(
+    title = "Treasury Bills",
+    subtitle = "since AUG2021",
+    y = "Return of Investment (%)",
+    x = "Issue Date"
+  )
