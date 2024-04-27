@@ -2,17 +2,6 @@ loadNamespace("tidyverse")
 loadNamespace("httr")
 loadNamespace("gmailr")
 
-# hold-over from using a manual approach
-# import all downloaded data
-# historicalDataRaw <- sapply(list.files("historical/", full.names = T), readr::read_csv, simplify = FALSE) |>  
-#   dplyr::bind_rows() |> 
-#   dplyr::rename(
-#     "price_per_100" = "Price per $100"
-#   )
-# 
-# colnames(historicalDataRaw) <- str_replace_all(tolower(names(historicalDataRaw)), " ", "_")
-
-
 # scrape from the website -------------------------------------------------
 
 tbills_neat <- httr::content(httr::GET("https://www.treasurydirect.gov/TA_WS/securities/jqsearch?format=json"))
