@@ -1,5 +1,6 @@
 loadNamespace("tidyverse")
 loadNamespace("httr")
+loadNamespace("gmailr")
 
 # hold-over from using a manual approach
 # import all downloaded data
@@ -94,3 +95,19 @@ tbills_final |>
     y = "Return of Investment (%)",
     x = "Issue Date"
   )
+
+# notification ------------------------------------------------------------
+gmailr::gm_auth_configure()
+
+gmailr::gm_oauth_client()
+
+gmailr::gm_auth(email = "jbrannock2018@gmail.com")
+
+test_email <- 
+  gmailr::gm_mime() |> 
+  gmailr::gm_to("jbrannock2018@gmail.com") |> 
+  gmailr::gm_from("jbrannock2018@gmail.com") |> 
+  gmailr::gm_subject("test email") |> 
+  gmailr::gm_text_body("just a test body")
+
+gmailr::gm_send_message(test_email)
